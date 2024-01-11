@@ -24,8 +24,6 @@ MIDIRecorder {
 					key_array[note].size == 0,
 					{
 						key_array[note] = key_array[note].add([note, vel, timestamp]);
-						key_array.postln;
-						buffers.postln
 					},
 					{
 						// clear the array with a noteoff and then add note info ... do later
@@ -42,12 +40,10 @@ MIDIRecorder {
 					key_array[note].size == 1,
 					{
 						var e;
-						e = [note, vel, key_array[note][0][2], timestamp - key_array[note][0][2]];
+						e = MIDIRecEvent.new(note: note, vel: vel, onset: key_array[note][0][2], sus: timestamp - key_array[note][0][2]);
 						// I'm sure there's a more efficient way of getting the index, so I don't need to repeatedly calculate...
 						buffers[buffers.size - 1] = buffers[buffers.size - 1].add(e);
 						key_array[note] = nil;
-						key_array.postln;
-						buffers.postln;
 
 					},
 					{
@@ -78,11 +74,19 @@ MIDIRecorder {
 	}
 
 	stop {
+		var buffer = buffers[buffers.size - 1];
 		mididefs.do({
 			arg mididef;
 			mididef.disable
-		})
+		});
 		// clean-up ...
+		buffer.sort({arg a, b; b.onset > a.onset});
+		(buffer.size - 1).do({
+			arg i;
+			buffer[i].delta = (buffer[i+1].onset - buffer[i].onset)
+		});
+		// make the last note duration the same as the sustain // or alternatively, I could take a final timestamp at the point at which the recording is stopped, and that could be the final duration ...
+		buffer[buffer.size - 1].delta = buffer[buffer.size - 1].sus
 	}
 
 	get_keyarray {
@@ -90,35 +94,36 @@ MIDIRecorder {
 	}
 }
 
-MIDIRecorderBuf {
-	var <buffer;
-}
+/*m = MIDIRecorder.new(chan: 0)
 
-MIDIRecEvent {
-	var <note, <vel, <onset, <sus, <delta;
+m.record;
+m.stop
 
-	*new {
-		arg note, vel, onset, sus, delta;
+(
+~durs = m.buffers[0].collect({
+	arg e;
+	e.delta.postln
+});
 
-		^super.newCopyArgs(note, vel, onset, sus, delta)
-	}
-}
+~sus = m.buffers[0].collect({
+	arg e;
+	e.sus.postln
+});
 
-
-// MIDIRecorder is like a multitrack midi recorder ...
-// MIDIRecBuf is like a record region?
-// MIDIRecEvent is basically a midi event that goes in the region.
-
-// the key array works as it is ... so really the midi recorder simply needs a working key array ...
-
-/*m = MIDIRecorder.new()
-
-m.mididefs.do({
-	arg mididef;
-	mididef.enable
+~notes = m.buffers[0].collect({
+	arg e;
+	e.note.postln
 })
+)
 
-m.buffers
-m.get_keyarray
+(
+Pbind(
+	\midinote, Pseq(~notes + (12 * 4), 1),
+	\dur, Pseq(~durs, 1),
+	\sus, Pseq(~sus, 1)
+).play
+)
 
-MIDIClient.sources*/
+m.buffers*/
+
+// didn't work for some reason ...
